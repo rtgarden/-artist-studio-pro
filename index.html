@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Artist Studio Pro - Inventory Management for Creative Professionals</title>
+    <meta name="description" content="The complete inventory management system for visual and theatrical artists. Track artworks, books, supplies, costumes, characters, and vendors.">
+    <meta name="keywords" content="artist inventory, art supplies, costume tracking, theatrical props, studio management">
+    <meta name="author" content="Artist Studio Pro">
+    <meta name="theme-color" content="#7c3aed">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Artist Studio">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Artist Studio Pro">
+    <meta property="og:description" content="Inventory management for creative professionals">
+    <meta property="og:type" content="website">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' style='stop-color:%238b5cf6'/%3E%3Cstop offset='100%25' style='stop-color:%23ec4899'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='20' fill='url(%23g)'/%3E%3Cpath d='M30 70V35c0-3 2-5 5-5h5l10 15 10-15h5c3 0 5 2 5 5v35' stroke='white' stroke-width='6' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='35' cy='45' r='4' fill='white'/%3E%3Ccircle cx='65' cy='45' r='4' fill='white'/%3E%3C/svg%3E">
+
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#faf5ff', 100: '#f3e8ff', 200: '#e9d5ff', 300: '#d8b4fe', 400: '#c084fc', 500: '#a855f7', 600: '#9333ea', 700: '#7c3aed', 800: '#6b21a8', 900: '#581c87' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; background: #f8fafc; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        @media print { .no-print { display: none !important; } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .animate-fadeIn { animation: fadeIn 0.5s ease-out; }
+        .animate-pulse { animation: pulse 2s infinite; }
+        .animate-spin { animation: spin 1s linear infinite; }
+        .gradient-brand { background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); }
+        .gradient-dark { background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%); }
+        input:focus, select:focus, textarea:focus, button:focus { outline: none; }
+        @supports (-webkit-touch-callout: none) { .h-screen { height: -webkit-fill-available; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+// ═══════════════════════════════════════════════════════════════════════════════
+// ARTIST STUDIO PRO - Commercial Edition
+// Version 1.0.0
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const { useState, useEffect, useRef, useCallback } = React;
+const APP_VERSION = '1.0.0';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// STORAGE & UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const storage = {
+  get: (key, defaultValue) => {
+    try {
+      const item = localStorage.getItem('artiststudio_' + key);
+      return item ? JSON.parse(item) : defaultValue;
+    } catch (e) { return defaultValue; }
+  },
+  set: (key, value) => {
+    try {
+      localStorage.setItem('artiststudio_' + key, JSON.stringify(value));
+      return true;
+    } catch (e) { return false; }
+  },
+  remove: (key) => {
+    try { localStorage.removeItem('artiststudio_' + key); } catch (e) {}
+  }
+};
+
+const formatDate = (date) => new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ICONS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const Icons = {
+  Logo: ({ className = "w-8 h-8" }) => (
+    <svg className={className} viewBox="0 0 100 100">
+      <defs><linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#8b5cf6"/><stop offset="100%" stopColor="#ec4899"/></linearGradient></defs>
+      <rect width="100" height="100" rx="20" fill="url(#logoGrad)"/>
+      <path d="M30 70V35c0-3 2-5 5-5h5l10 15 10-15h5c3 0 5 2 5 5v35" stroke="white" strokeWidth="6" fill="none" strokeLinecap="round"/>
+      <circle cx="35" cy="45" r="4" fill="white"/><circle cx="65" cy="45" r="4" fill="white"/>
+    </svg>
+  ),
+  Plus: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>,
+  Grid: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>,
+  List: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>,
+  Search: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>,
+  Download: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
+  Upload: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>,
+  Trash: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+  Edit: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>,
+  X: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
+  Image: () => <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
+  Back: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>,
+  Check: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>,
+  Palette: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" /></svg>,
+  Book: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>,
+  Box: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>,
+  Store: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>,
+  Hanger: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" /></svg>,
+  Link: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>,
+  Star: () => <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>,
+  Alert: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+  External: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>,
+  Sparkles: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>,
+  Wifi: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" /></svg>,
+  WifiOff: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829" /></svg>,
+  Database: () => <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" /></svg>,
+  Mask: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Help: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+  Settings: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
+  ChevronRight: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>,
+  Heart: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>,
+  Shield: () => <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>,
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPONENTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const Toast = ({ message, show }) => (
+  <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 md:left-auto md:translate-x-0 md:right-6 gradient-brand text-white px-6 py-3 rounded-xl shadow-2xl transition-all duration-300 z-50 flex items-center gap-2 ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+    <Icons.Check /> {message}
+  </div>
+);
+
+const OnlineIndicator = ({ isOnline }) => (
+  <div className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded-full ${isOnline ? 'bg-green-500/20 text-green-300' : 'bg-amber-500/20 text-amber-300'}`}>
+    {isOnline ? <Icons.Wifi /> : <Icons.WifiOff />}
+    {isOnline ? 'Online' : 'Offline'}
+  </div>
+);
+
+const ImageUpload = ({ image, onChange, onRemove, compact }) => {
+  const inputRef = useRef(null);
+  const [dragOver, setDragOver] = useState(false);
+
+  const handleFile = (file) => {
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxSize = 800;
+          let { width, height } = img;
+          if (width > maxSize || height > maxSize) {
+            if (width > height) { height = (height / width) * maxSize; width = maxSize; }
+            else { width = (width / height) * maxSize; height = maxSize; }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+          onChange(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  return (
+    <div
+      className={`relative border-2 border-dashed rounded-xl text-center cursor-pointer transition-all ${dragOver ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300'} ${image ? 'border-solid border-brand-400' : ''} ${compact ? 'p-2' : 'p-6'}`}
+      onClick={() => !image && inputRef.current?.click()}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); handleFile(e.dataTransfer.files[0]); }}
+    >
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleFile(e.target.files[0])} />
+      {image ? (
+        <div className="relative">
+          <img src={image} alt="Preview" className={`mx-auto rounded-lg object-cover ${compact ? 'max-h-20' : 'max-h-48'}`} />
+          <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 shadow-lg">
+            <Icons.X />
+          </button>
+        </div>
+      ) : (
+        <div className="text-gray-400">
+          {!compact && <div className="mb-2"><Icons.Image /></div>}
+          <p className={`font-medium text-gray-500 ${compact ? 'text-xs' : 'text-sm'}`}>+ Add Image</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const LinkPicker = ({ items, selectedIds, onChange, itemType, label }) => {
+  const [open, setOpen] = useState(false);
+  const available = items.filter(i => i.type === itemType);
+  const selected = available.filter(i => selectedIds.includes(i.id));
+
+  return (
+    <div className="relative">
+      {label && <label className="block text-xs font-medium text-gray-500 mb-1">{label}</label>}
+      <div onClick={() => setOpen(!open)} className="min-h-[40px] px-3 py-2 border border-gray-200 rounded-lg cursor-pointer bg-white hover:border-gray-300 flex flex-wrap gap-1 items-center">
+        {selected.length === 0 ? (
+          <span className="text-gray-400 text-sm">Select {itemType}s...</span>
+        ) : (
+          selected.map(item => (
+            <span key={item.id} className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700">{item.name || item.title}</span>
+          ))
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-30 mt-1 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-auto">
+          {available.length === 0 ? (
+            <p className="p-3 text-sm text-gray-500">No {itemType}s available</p>
+          ) : (
+            available.map(item => (
+              <label key={item.id} className="flex items-center gap-3 p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-0">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.includes(item.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) onChange([...selectedIds, item.id]);
+                    else onChange(selectedIds.filter(id => id !== item.id));
+                  }}
+                  className="rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span className="text-sm truncate">{item.name || item.title}</span>
+              </label>
+            ))
+          )}
+          <button onClick={() => setOpen(false)} className="w-full p-2 text-sm text-brand-600 border-t hover:bg-gray-50 font-medium">Done</button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// WELCOME SCREEN
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const WelcomeScreen = ({ onComplete }) => {
+  const [step, setStep] = useState(0);
+
+  const steps = [
+    {
+      title: "Welcome to Artist Studio Pro",
+      subtitle: "Your complete inventory management system",
+      content: (
+        <div className="text-center">
+          <Icons.Logo className="w-24 h-24 mx-auto mb-6" />
+          <p className="text-gray-600 mb-6">Organize your artworks, books, supplies, costumes, characters, and vendors - all in one place.</p>
+          <div className="grid grid-cols-3 gap-4 text-center mb-6">
+            {[
+              { icon: Icons.Shield, label: "100% Private" },
+              { icon: Icons.Database, label: "Works Offline" },
+              { icon: Icons.Heart, label: "Made for Artists" },
+            ].map((item, i) => (
+              <div key={i} className="p-3">
+                <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-brand-100 text-brand-600 flex items-center justify-center"><item.icon /></div>
+                <p className="text-xs text-gray-600">{item.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    },
+    {
+      title: "Track Everything",
+      subtitle: "Six categories for your creative ecosystem",
+      content: (
+        <div className="space-y-3">
+          {[
+            { icon: Icons.Palette, color: 'bg-violet-100 text-violet-600', name: 'Artworks', desc: 'Paintings, sculptures, and creations' },
+            { icon: Icons.Book, color: 'bg-emerald-100 text-emerald-600', name: 'Books', desc: 'Reference library and inspiration' },
+            { icon: Icons.Box, color: 'bg-amber-100 text-amber-600', name: 'Supplies', desc: 'Materials with stock tracking' },
+            { icon: Icons.Hanger, color: 'bg-rose-100 text-rose-600', name: 'Costumes & Props', desc: 'Period pieces and reference items' },
+            { icon: Icons.Mask, color: 'bg-fuchsia-100 text-fuchsia-600', name: 'Characters', desc: 'Theatrical roles and concepts' },
+            { icon: Icons.Store, color: 'bg-blue-100 text-blue-600', name: 'Vendors', desc: 'Your trusted suppliers' },
+          ].map((item, i) => (
+            <div key={i} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100">
+              <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center`}><item.icon /></div>
+              <div><p className="font-medium text-gray-900">{item.name}</p><p className="text-xs text-gray-500">{item.desc}</p></div>
+            </div>
+          ))}
+        </div>
+      )
+    },
+    {
+      title: "Your Data, Your Device",
+      subtitle: "Privacy-first design",
+      content: (
+        <div className="text-center space-y-6">
+          <div className="w-20 h-20 mx-auto rounded-2xl gradient-brand flex items-center justify-center"><Icons.Shield className="w-10 h-10 text-white" /></div>
+          <div className="space-y-4 text-left max-w-sm mx-auto">
+            <div className="flex gap-3"><Icons.Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" /><p className="text-gray-600">All data stays on your device - nothing is sent to servers</p></div>
+            <div className="flex gap-3"><Icons.Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" /><p className="text-gray-600">Works completely offline after first load</p></div>
+            <div className="flex gap-3"><Icons.Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" /><p className="text-gray-600">Export your data anytime as a backup file</p></div>
+            <div className="flex gap-3"><Icons.Check className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" /><p className="text-gray-600">Install as an app on your phone or computer</p></div>
+          </div>
+        </div>
+      )
+    }
+  ];
+
+  return (
+    <div className="min-h-screen gradient-dark flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-gray-50 rounded-3xl shadow-2xl overflow-hidden animate-fadeIn">
+        <div className="p-8">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-1">{steps[step].title}</h1>
+            <p className="text-gray-500">{steps[step].subtitle}</p>
+          </div>
+
+          <div className="min-h-[320px]">{steps[step].content}</div>
+
+          <div className="flex items-center justify-between mt-6">
+            <div className="flex gap-2">
+              {steps.map((_, i) => (
+                <div key={i} className={`w-2 h-2 rounded-full transition-colors ${i === step ? 'bg-brand-600' : 'bg-gray-300'}`} />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              {step > 0 && (
+                <button onClick={() => setStep(step - 1)} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Back</button>
+              )}
+              <button
+                onClick={() => step === steps.length - 1 ? onComplete() : setStep(step + 1)}
+                className="px-6 py-2 gradient-brand text-white rounded-xl font-medium hover:opacity-90 transition-opacity flex items-center gap-2"
+              >
+                {step === steps.length - 1 ? 'Get Started' : 'Next'} <Icons.ChevronRight />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// HELP MODAL
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const HelpModal = ({ onClose }) => {
+  const [section, setSection] = useState('getting-started');
+
+  const sections = {
+    'getting-started': {
+      title: 'Getting Started',
+      content: (
+        <div className="space-y-4">
+          <p>Artist Studio Pro helps you manage your entire creative inventory. Here's how to get started:</p>
+          <ol className="list-decimal list-inside space-y-2 text-gray-600">
+            <li>Click the colored buttons in the header to add new items</li>
+            <li>Fill in the details and add photos</li>
+            <li>Use the tabs to filter by category</li>
+            <li>Click any item to view details or edit</li>
+          </ol>
+        </div>
+      )
+    },
+    'categories': {
+      title: 'Categories',
+      content: (
+        <div className="space-y-3">
+          {[
+            { name: 'Artworks', desc: 'Track paintings, sculptures, and creations with dimensions, medium, status, and series' },
+            { name: 'Books', desc: 'Manage your reference library with ratings, categories, and reading status' },
+            { name: 'Supplies', desc: 'Monitor art materials with stock levels and automatic reorder alerts' },
+            { name: 'Costumes & Props', desc: 'Catalog reference pieces with era, condition, and materials' },
+            { name: 'Characters', desc: 'Define theatrical roles with personality, physical traits, and costume assignments' },
+            { name: 'Vendors', desc: 'Keep track of suppliers with contact info and notes' },
+          ].map((item, i) => (
+            <div key={i} className="p-3 bg-gray-50 rounded-lg">
+              <p className="font-medium text-gray-900">{item.name}</p>
+              <p className="text-sm text-gray-600">{item.desc}</p>
+            </div>
+          ))}
+        </div>
+      )
+    },
+    'connections': {
+      title: 'Cross-References',
+      content: (
+        <div className="space-y-4">
+          <p>Link items together to understand your creative process:</p>
+          <ul className="space-y-2 text-gray-600">
+            <li>• <strong>Artworks</strong> can reference books that influenced them, supplies used, and props featured</li>
+            <li>• <strong>Characters</strong> can be linked to their costumes and reference books</li>
+            <li>• <strong>Supplies</strong> can track which vendor they came from</li>
+          </ul>
+          <p className="text-sm text-gray-500">These connections appear automatically when viewing any item's details.</p>
+        </div>
+      )
+    },
+    'backup': {
+      title: 'Backup & Restore',
+      content: (
+        <div className="space-y-4">
+          <p>Your data is stored locally on this device. We recommend regular backups:</p>
+          <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <p className="font-medium text-amber-800 mb-2">Important</p>
+            <p className="text-sm text-amber-700">If you clear your browser data, your inventory will be lost. Always keep a backup!</p>
+          </div>
+          <div className="space-y-2">
+            <p className="font-medium">To backup:</p>
+            <p className="text-gray-600">Click "Export" in the header to download a JSON file with all your data.</p>
+          </div>
+          <div className="space-y-2">
+            <p className="font-medium">To restore:</p>
+            <p className="text-gray-600">Click "Import" and select a previously exported backup file.</p>
+          </div>
+        </div>
+      )
+    },
+    'install': {
+      title: 'Install as App',
+      content: (
+        <div className="space-y-4">
+          <p>You can install Artist Studio Pro as an app on your device for quick access:</p>
+          <div className="space-y-3">
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="font-medium text-gray-900">iPhone/iPad</p>
+              <p className="text-sm text-gray-600">Tap the Share button → "Add to Home Screen"</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="font-medium text-gray-900">Android</p>
+              <p className="text-sm text-gray-600">Tap the menu (⋮) → "Add to Home screen"</p>
+            </div>
+            <div className="p-3 bg-gray-50 rounded-lg">
+              <p className="font-medium text-gray-900">Desktop (Chrome/Edge)</p>
+              <p className="text-sm text-gray-600">Click the install icon in the address bar</p>
+            </div>
+          </div>
+        </div>
+      )
+    },
+    'about': {
+      title: 'About',
+      content: (
+        <div className="space-y-4 text-center">
+          <Icons.Logo className="w-16 h-16 mx-auto" />
+          <div>
+            <p className="font-bold text-xl text-gray-900">Artist Studio Pro</p>
+            <p className="text-gray-500">Version {APP_VERSION}</p>
+          </div>
+          <p className="text-gray-600">Inventory management for visual and theatrical artists.</p>
+          <div className="p-4 bg-gray-50 rounded-lg text-sm text-gray-500">
+            <p>Your data never leaves your device.</p>
+            <p>No account required. No tracking.</p>
+          </div>
+        </div>
+      )
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col md:flex-row" onClick={e => e.stopPropagation()}>
+        <div className="md:w-48 bg-gray-50 p-4 border-b md:border-b-0 md:border-r flex md:flex-col gap-1 overflow-x-auto md:overflow-x-visible">
+          {Object.entries(sections).map(([key, { title }]) => (
+            <button
+              key={key}
+              onClick={() => setSection(key)}
+              className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors text-left ${section === key ? 'bg-brand-600 text-white' : 'text-gray-600 hover:bg-gray-200'}`}
+            >{title}</button>
+          ))}
+        </div>
+        <div className="flex-1 p-6 overflow-y-auto">
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-xl font-bold text-gray-900">{sections[section].title}</h2>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg text-gray-400"><Icons.X /></button>
+          </div>
+          <div className="text-gray-700">{sections[section].content}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const LOCATIONS = ['Studio', 'Storage', 'Office', 'On Loan', 'Gallery', 'Sold', 'Gifted'];
+const ARTWORK_STATUS = ['In Progress', 'Completed', 'For Sale', 'Sold', 'Not for Sale'];
+const BOOK_STATUS = ['In Library', 'Currently Reading', 'Want to Read', 'Wish List'];
+const BOOK_CATEGORIES = ['Art Monograph', 'Exhibition Catalog', 'Art Theory', 'Art History', 'Artist Biography', 'Technique/How-To', 'Photography', 'Design', 'Reference', 'Other'];
+const SUPPLY_CATEGORIES = ['Paint - Oil', 'Paint - Acrylic', 'Paint - Watercolor', 'Canvas', 'Paper', 'Brushes', 'Mediums & Gels', 'Tools', 'Framing', 'Other'];
+const STOCK_STATUS = ['In Stock', 'Low Stock', 'Out of Stock', 'On Order'];
+const COSTUME_TYPES = ['Costume', 'Prop', 'Accessory', 'Furniture', 'Textile', 'Jewelry', 'Other'];
+const COSTUME_ERAS = ['Contemporary', 'Victorian', 'Renaissance', 'Medieval', '1920s', '1950s', 'Fantasy', 'Timeless'];
+const COSTUME_CONDITIONS = ['Excellent', 'Good', 'Fair', 'Needs Repair'];
+const CHARACTER_TYPES = ['Lead', 'Supporting', 'Background', 'Concept'];
+const CHARACTER_GENDERS = ['Female', 'Male', 'Non-binary', 'Other', 'Not Specified'];
+const CHARACTER_AGE_RANGES = ['Child', 'Teen', 'Young Adult', 'Adult', 'Middle-aged', 'Elder', 'Ageless'];
+
+const typeConfig = {
+  artwork: { color: 'violet', bgLight: 'bg-violet-50', bgMedium: 'bg-violet-100', text: 'text-violet-700', bgDark: 'bg-violet-600', Icon: Icons.Palette },
+  book: { color: 'emerald', bgLight: 'bg-emerald-50', bgMedium: 'bg-emerald-100', text: 'text-emerald-700', bgDark: 'bg-emerald-600', Icon: Icons.Book },
+  supply: { color: 'amber', bgLight: 'bg-amber-50', bgMedium: 'bg-amber-100', text: 'text-amber-700', bgDark: 'bg-amber-600', Icon: Icons.Box },
+  costume: { color: 'rose', bgLight: 'bg-rose-50', bgMedium: 'bg-rose-100', text: 'text-rose-700', bgDark: 'bg-rose-600', Icon: Icons.Hanger },
+  character: { color: 'fuchsia', bgLight: 'bg-fuchsia-50', bgMedium: 'bg-fuchsia-100', text: 'text-fuchsia-700', bgDark: 'bg-fuchsia-600', Icon: Icons.Mask },
+  source: { color: 'blue', bgLight: 'bg-blue-50', bgMedium: 'bg-blue-100', text: 'text-blue-700', bgDark: 'bg-blue-600', Icon: Icons.Store },
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// FORMS (Abbreviated for length - full versions in production)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ArtworkForm = ({ item, items, onSave, onCancel }) => {
+  const [form, setForm] = useState(item || {
+    id: Date.now(), type: 'artwork', invNumber: '', title: '', dateCompleted: '',
+    medium: '', height: '', width: '', depth: '', units: 'in',
+    location: 'Studio', series: '', status: 'Completed',
+    influencedBy: [], suppliesUsed: [], costumesUsed: [], notes: '', image: null
+  });
+  const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
+
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (!form.title.trim()) return alert('Title required'); onSave(form); }} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm"><ImageUpload image={form.image} onChange={(img) => update('image', img)} onRemove={() => update('image', null)} /></div>
+        <div className="md:col-span-2 bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <input type="text" value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="Artwork Title *" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent" required />
+          <div className="grid grid-cols-3 gap-3">
+            <input type="text" value={form.invNumber} onChange={(e) => update('invNumber', e.target.value)} placeholder="Inv #" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <input type="month" value={form.dateCompleted} onChange={(e) => update('dateCompleted', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <input type="text" value={form.medium} onChange={(e) => update('medium', e.target.value)} placeholder="Medium" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">Dimensions & Location</h3>
+          <div className="grid grid-cols-4 gap-2">
+            <input type="number" step="0.1" value={form.height} onChange={(e) => update('height', e.target.value)} placeholder="H" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <input type="number" step="0.1" value={form.width} onChange={(e) => update('width', e.target.value)} placeholder="W" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <input type="number" step="0.1" value={form.depth} onChange={(e) => update('depth', e.target.value)} placeholder="D" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <select value={form.units} onChange={(e) => update('units', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{['in', 'cm'].map(u => <option key={u}>{u}</option>)}</select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <select value={form.location} onChange={(e) => update('location', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{LOCATIONS.map(l => <option key={l}>{l}</option>)}</select>
+            <select value={form.status} onChange={(e) => update('status', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{ARTWORK_STATUS.map(s => <option key={s}>{s}</option>)}</select>
+          </div>
+          <input type="text" value={form.series} onChange={(e) => update('series', e.target.value)} placeholder="Series / Body of Work" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+        </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">Connections</h3>
+          <LinkPicker items={items} selectedIds={form.influencedBy || []} onChange={(ids) => update('influencedBy', ids)} itemType="book" label="Influenced by (books)" />
+          <LinkPicker items={items} selectedIds={form.suppliesUsed || []} onChange={(ids) => update('suppliesUsed', ids)} itemType="supply" label="Supplies used" />
+          <LinkPicker items={items} selectedIds={form.costumesUsed || []} onChange={(ids) => update('costumesUsed', ids)} itemType="costume" label="Props featured" />
+        </div>
+      </div>
+      <div className="bg-white rounded-2xl p-4 shadow-sm">
+        <textarea value={form.notes} onChange={(e) => update('notes', e.target.value)} placeholder="Notes..." rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none" />
+      </div>
+      <div className="flex gap-3 justify-end">
+        <button type="button" onClick={onCancel} className="px-6 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-colors">Cancel</button>
+        <button type="submit" className="px-6 py-2.5 gradient-brand text-white rounded-xl hover:opacity-90 transition-opacity flex items-center gap-2"><Icons.Check /> Save Artwork</button>
+      </div>
+    </form>
+  );
+};
+
+// Additional forms omitted for brevity - same pattern as original but with brand colors
+const BookForm = ({ item, items, onSave, onCancel }) => {
+  const [form, setForm] = useState(item || { id: Date.now(), type: 'book', isbn: '', title: '', authors: '', publisher: '', pubYear: '', category: 'Art Monograph', status: 'In Library', location: 'Studio', rating: 0, relatedArtworks: [], relatedCostumes: [], notes: '', image: null });
+  const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (!form.title.trim()) return alert('Title required'); onSave(form); }} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm"><ImageUpload image={form.image} onChange={(img) => update('image', img)} onRemove={() => update('image', null)} /></div>
+        <div className="md:col-span-2 bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <input type="text" value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="Book Title *" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg focus:ring-2 focus:ring-emerald-500" required />
+          <input type="text" value={form.authors} onChange={(e) => update('authors', e.target.value)} placeholder="Author(s)" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          <div className="grid grid-cols-3 gap-3">
+            <input type="text" value={form.isbn} onChange={(e) => update('isbn', e.target.value)} placeholder="ISBN" className="px-3 py-2 border border-gray-200 rounded-lg text-sm font-mono" />
+            <input type="text" value={form.publisher} onChange={(e) => update('publisher', e.target.value)} placeholder="Publisher" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <input type="text" value={form.pubYear} onChange={(e) => update('pubYear', e.target.value)} placeholder="Year" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">Details</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <select value={form.category} onChange={(e) => update('category', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{BOOK_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select>
+            <select value={form.status} onChange={(e) => update('status', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{BOOK_STATUS.map(s => <option key={s}>{s}</option>)}</select>
+          </div>
+          <select value={form.location} onChange={(e) => update('location', e.target.value)} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm">{LOCATIONS.map(l => <option key={l}>{l}</option>)}</select>
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-gray-500 mr-2">Rating:</span>
+            {[1,2,3,4,5].map(n => (<button key={n} type="button" onClick={() => update('rating', form.rating === n ? 0 : n)} className={form.rating >= n ? 'text-yellow-400' : 'text-gray-300'}><Icons.Star /></button>))}
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">Connections</h3>
+          <LinkPicker items={items} selectedIds={form.relatedArtworks || []} onChange={(ids) => update('relatedArtworks', ids)} itemType="artwork" label="Related artworks" />
+          <LinkPicker items={items} selectedIds={form.relatedCostumes || []} onChange={(ids) => update('relatedCostumes', ids)} itemType="costume" label="Related props" />
+        </div>
+      </div>
+      <div className="bg-white rounded-2xl p-4 shadow-sm"><textarea value={form.notes} onChange={(e) => update('notes', e.target.value)} placeholder="Notes..." rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none" /></div>
+      <div className="flex gap-3 justify-end">
+        <button type="button" onClick={onCancel} className="px-6 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button type="submit" className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 flex items-center gap-2"><Icons.Check /> Save Book</button>
+      </div>
+    </form>
+  );
+};
+
+const SupplyForm = ({ item, items, onSave, onCancel }) => {
+  const sources = items.filter(i => i.type === 'source');
+  const [form, setForm] = useState(item || { id: Date.now(), type: 'supply', name: '', brand: '', category: 'Paint - Oil', color: '', size: '', quantity: 1, unit: 'tube', stockStatus: 'In Stock', sourceId: null, price: '', productUrl: '', usedIn: [], notes: '', image: null });
+  const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (!form.name.trim()) return alert('Name required'); onSave(form); }} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm"><ImageUpload image={form.image} onChange={(img) => update('image', img)} onRemove={() => update('image', null)} /></div>
+        <div className="md:col-span-2 bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <input type="text" value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Supply Name *" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg focus:ring-2 focus:ring-amber-500" required />
+          <div className="grid grid-cols-2 gap-3">
+            <input type="text" value={form.brand} onChange={(e) => update('brand', e.target.value)} placeholder="Brand" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <select value={form.category} onChange={(e) => update('category', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{SUPPLY_CATEGORIES.map(c => <option key={c}>{c}</option>)}</select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <input type="text" value={form.color} onChange={(e) => update('color', e.target.value)} placeholder="Color/Variant" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <input type="text" value={form.size} onChange={(e) => update('size', e.target.value)} placeholder="Size" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          </div>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">Stock & Pricing</h3>
+          <div className="grid grid-cols-3 gap-2">
+            <input type="number" value={form.quantity} onChange={(e) => update('quantity', e.target.value)} placeholder="Qty" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <select value={form.unit} onChange={(e) => update('unit', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{['tube', 'bottle', 'jar', 'sheet', 'roll', 'box', 'each'].map(u => <option key={u}>{u}</option>)}</select>
+            <select value={form.stockStatus} onChange={(e) => update('stockStatus', e.target.value)} className={`px-3 py-2 border rounded-lg text-sm ${form.stockStatus === 'Out of Stock' ? 'bg-red-50 border-red-200 text-red-700' : form.stockStatus === 'Low Stock' ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-gray-200'}`}>{STOCK_STATUS.map(s => <option key={s}>{s}</option>)}</select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="number" step="0.01" value={form.price} onChange={(e) => update('price', e.target.value)} placeholder="Price $" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <select value={form.sourceId || ''} onChange={(e) => update('sourceId', e.target.value ? Number(e.target.value) : null)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm"><option value="">No vendor</option>{sources.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
+          </div>
+          <input type="url" value={form.productUrl} onChange={(e) => update('productUrl', e.target.value)} placeholder="Product URL" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+        </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">Connections</h3>
+          <LinkPicker items={items} selectedIds={form.usedIn || []} onChange={(ids) => update('usedIn', ids)} itemType="artwork" label="Used in artworks" />
+          <textarea value={form.notes} onChange={(e) => update('notes', e.target.value)} placeholder="Notes..." rows={3} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none" />
+        </div>
+      </div>
+      <div className="flex gap-3 justify-end">
+        <button type="button" onClick={onCancel} className="px-6 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button type="submit" className="px-6 py-2.5 bg-amber-600 text-white rounded-xl hover:bg-amber-700 flex items-center gap-2"><Icons.Check /> Save Supply</button>
+      </div>
+    </form>
+  );
+};
+
+const CostumeForm = ({ item, items, onSave, onCancel }) => {
+  const [form, setForm] = useState(item || { id: Date.now(), type: 'costume', name: '', costumeType: 'Prop', description: '', era: 'Timeless', materials: '', colors: '', condition: 'Good', location: 'Studio', acquiredFrom: '', acquiredDate: '', price: '', sourceId: null, assignedToCharacters: [], relatedBooks: [], usedInArtworks: [], notes: '', image: null });
+  const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (!form.name.trim()) return alert('Name required'); onSave(form); }} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm"><ImageUpload image={form.image} onChange={(img) => update('image', img)} onRemove={() => update('image', null)} /></div>
+        <div className="md:col-span-2 bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <input type="text" value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Item Name *" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg focus:ring-2 focus:ring-rose-500" required />
+          <div className="grid grid-cols-2 gap-3">
+            <select value={form.costumeType} onChange={(e) => update('costumeType', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{COSTUME_TYPES.map(t => <option key={t}>{t}</option>)}</select>
+            <select value={form.era} onChange={(e) => update('era', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{COSTUME_ERAS.map(e => <option key={e}>{e}</option>)}</select>
+          </div>
+          <textarea value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Description..." rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">Details</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="text" value={form.materials} onChange={(e) => update('materials', e.target.value)} placeholder="Materials" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <input type="text" value={form.colors} onChange={(e) => update('colors', e.target.value)} placeholder="Colors" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <select value={form.condition} onChange={(e) => update('condition', e.target.value)} className={`px-3 py-2 border rounded-lg text-sm ${form.condition === 'Needs Repair' ? 'bg-amber-50 border-amber-200 text-amber-700' : 'border-gray-200'}`}>{COSTUME_CONDITIONS.map(c => <option key={c}>{c}</option>)}</select>
+            <select value={form.location} onChange={(e) => update('location', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{LOCATIONS.map(l => <option key={l}>{l}</option>)}</select>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <input type="text" value={form.acquiredFrom} onChange={(e) => update('acquiredFrom', e.target.value)} placeholder="Acquired from" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <input type="date" value={form.acquiredDate} onChange={(e) => update('acquiredDate', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <input type="number" step="0.01" value={form.price} onChange={(e) => update('price', e.target.value)} placeholder="Price $" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          </div>
+        </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">Connections</h3>
+          <LinkPicker items={items} selectedIds={form.assignedToCharacters || []} onChange={(ids) => update('assignedToCharacters', ids)} itemType="character" label="Assigned to characters" />
+          <LinkPicker items={items} selectedIds={form.relatedBooks || []} onChange={(ids) => update('relatedBooks', ids)} itemType="book" label="Reference books" />
+          <LinkPicker items={items} selectedIds={form.usedInArtworks || []} onChange={(ids) => update('usedInArtworks', ids)} itemType="artwork" label="Featured in artworks" />
+        </div>
+      </div>
+      <div className="bg-white rounded-2xl p-4 shadow-sm"><textarea value={form.notes} onChange={(e) => update('notes', e.target.value)} placeholder="Notes..." rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none" /></div>
+      <div className="flex gap-3 justify-end">
+        <button type="button" onClick={onCancel} className="px-6 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button type="submit" className="px-6 py-2.5 bg-rose-600 text-white rounded-xl hover:bg-rose-700 flex items-center gap-2"><Icons.Check /> Save Item</button>
+      </div>
+    </form>
+  );
+};
+
+const SourceForm = ({ item, onSave, onCancel }) => {
+  const [form, setForm] = useState(item || { id: Date.now(), type: 'source', name: '', website: '', storeType: 'Online', address: '', phone: '', email: '', notes: '', image: null });
+  const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (!form.name.trim()) return alert('Name required'); onSave(form); }} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm"><ImageUpload image={form.image} onChange={(img) => update('image', img)} onRemove={() => update('image', null)} /></div>
+        <div className="md:col-span-2 bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <input type="text" value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Vendor Name *" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg focus:ring-2 focus:ring-blue-500" required />
+          <div className="grid grid-cols-2 gap-3">
+            <input type="url" value={form.website} onChange={(e) => update('website', e.target.value)} placeholder="Website URL" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <select value={form.storeType} onChange={(e) => update('storeType', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{['Online', 'Local Store', 'Chain Store', 'Manufacturer', 'Antique Store', 'Thrift Store', 'Other'].map(t => <option key={t}>{t}</option>)}</select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <input type="text" value={form.phone} onChange={(e) => update('phone', e.target.value)} placeholder="Phone" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <input type="email" value={form.email} onChange={(e) => update('email', e.target.value)} placeholder="Email" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          </div>
+        </div>
+      </div>
+      <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+        <input type="text" value={form.address} onChange={(e) => update('address', e.target.value)} placeholder="Address" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+        <textarea value={form.notes} onChange={(e) => update('notes', e.target.value)} placeholder="Notes (discount codes, account info, etc.)" rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none" />
+      </div>
+      <div className="flex gap-3 justify-end">
+        <button type="button" onClick={onCancel} className="px-6 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button type="submit" className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 flex items-center gap-2"><Icons.Check /> Save Vendor</button>
+      </div>
+    </form>
+  );
+};
+
+const CharacterForm = ({ item, items, onSave, onCancel }) => {
+  const [form, setForm] = useState(item || { id: Date.now(), type: 'character', name: '', characterType: 'Lead', description: '', gender: 'Not Specified', ageRange: 'Adult', production: '', era: 'Timeless', personality: '', physicalTraits: '', assignedCostumes: [], referenceBooks: [], featuredInArtworks: [], notes: '', image: null });
+  const update = (f, v) => setForm(p => ({ ...p, [f]: v }));
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (!form.name.trim()) return alert('Name required'); onSave(form); }} className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm"><ImageUpload image={form.image} onChange={(img) => update('image', img)} onRemove={() => update('image', null)} /></div>
+        <div className="md:col-span-2 bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <input type="text" value={form.name} onChange={(e) => update('name', e.target.value)} placeholder="Character Name *" className="w-full px-4 py-3 border border-gray-200 rounded-xl text-lg focus:ring-2 focus:ring-fuchsia-500" required />
+          <div className="grid grid-cols-3 gap-3">
+            <select value={form.characterType} onChange={(e) => update('characterType', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{CHARACTER_TYPES.map(t => <option key={t}>{t}</option>)}</select>
+            <select value={form.gender} onChange={(e) => update('gender', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{CHARACTER_GENDERS.map(g => <option key={g}>{g}</option>)}</select>
+            <select value={form.ageRange} onChange={(e) => update('ageRange', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{CHARACTER_AGE_RANGES.map(a => <option key={a}>{a}</option>)}</select>
+          </div>
+          <textarea value={form.description} onChange={(e) => update('description', e.target.value)} placeholder="Character description..." rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">Character Details</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <input type="text" value={form.production} onChange={(e) => update('production', e.target.value)} placeholder="Production/Story" className="px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+            <select value={form.era} onChange={(e) => update('era', e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">{COSTUME_ERAS.map(e => <option key={e}>{e}</option>)}</select>
+          </div>
+          <input type="text" value={form.personality} onChange={(e) => update('personality', e.target.value)} placeholder="Personality traits" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+          <input type="text" value={form.physicalTraits} onChange={(e) => update('physicalTraits', e.target.value)} placeholder="Physical traits" className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+        </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold text-gray-700">Connections</h3>
+          <LinkPicker items={items} selectedIds={form.assignedCostumes || []} onChange={(ids) => update('assignedCostumes', ids)} itemType="costume" label="Assigned costumes/props" />
+          <LinkPicker items={items} selectedIds={form.referenceBooks || []} onChange={(ids) => update('referenceBooks', ids)} itemType="book" label="Reference books" />
+          <LinkPicker items={items} selectedIds={form.featuredInArtworks || []} onChange={(ids) => update('featuredInArtworks', ids)} itemType="artwork" label="Featured in artworks" />
+        </div>
+      </div>
+      <div className="bg-white rounded-2xl p-4 shadow-sm"><textarea value={form.notes} onChange={(e) => update('notes', e.target.value)} placeholder="Notes..." rows={2} className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none" /></div>
+      <div className="flex gap-3 justify-end">
+        <button type="button" onClick={onCancel} className="px-6 py-2.5 border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50">Cancel</button>
+        <button type="submit" className="px-6 py-2.5 bg-fuchsia-600 text-white rounded-xl hover:bg-fuchsia-700 flex items-center gap-2"><Icons.Check /> Save Character</button>
+      </div>
+    </form>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DETAIL VIEW
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const ItemDetail = ({ item, items, onEdit, onDelete, onBack, onViewItem }) => {
+  const config = typeConfig[item.type];
+  const getLinked = (ids, type) => items.filter(i => ids?.includes(i.id) && i.type === type);
+  const source = item.sourceId ? items.find(i => i.id === item.sourceId) : null;
+
+  const connections = [];
+  if (item.type === 'artwork') {
+    const books = getLinked(item.influencedBy, 'book');
+    const supplies = getLinked(item.suppliesUsed, 'supply');
+    const costumes = getLinked(item.costumesUsed, 'costume');
+    if (books.length) connections.push({ label: 'Influenced by', items: books, type: 'book' });
+    if (supplies.length) connections.push({ label: 'Supplies used', items: supplies, type: 'supply' });
+    if (costumes.length) connections.push({ label: 'Props featured', items: costumes, type: 'costume' });
+  }
+  if (item.type === 'book') {
+    const artworks = [...getLinked(item.relatedArtworks, 'artwork'), ...items.filter(i => i.type === 'artwork' && i.influencedBy?.includes(item.id))];
+    if (artworks.length) connections.push({ label: 'Related artworks', items: [...new Map(artworks.map(a => [a.id, a])).values()], type: 'artwork' });
+  }
+  if (item.type === 'supply') {
+    const artworks = [...getLinked(item.usedIn, 'artwork'), ...items.filter(i => i.type === 'artwork' && i.suppliesUsed?.includes(item.id))];
+    if (artworks.length) connections.push({ label: 'Used in', items: [...new Map(artworks.map(a => [a.id, a])).values()], type: 'artwork' });
+  }
+  if (item.type === 'costume') {
+    const artworks = [...getLinked(item.usedInArtworks, 'artwork'), ...items.filter(i => i.type === 'artwork' && i.costumesUsed?.includes(item.id))];
+    const characters = [...getLinked(item.assignedToCharacters, 'character'), ...items.filter(i => i.type === 'character' && i.assignedCostumes?.includes(item.id))];
+    if (characters.length) connections.push({ label: 'Worn by', items: [...new Map(characters.map(c => [c.id, c])).values()], type: 'character' });
+    if (artworks.length) connections.push({ label: 'Featured in', items: [...new Map(artworks.map(a => [a.id, a])).values()], type: 'artwork' });
+  }
+  if (item.type === 'character') {
+    const costumes = [...getLinked(item.assignedCostumes, 'costume'), ...items.filter(i => i.type === 'costume' && i.assignedToCharacters?.includes(item.id))];
+    const books = getLinked(item.referenceBooks, 'book');
+    const artworks = [...getLinked(item.featuredInArtworks, 'artwork')];
+    if (costumes.length) connections.push({ label: 'Costumes', items: [...new Map(costumes.map(c => [c.id, c])).values()], type: 'costume' });
+    if (books.length) connections.push({ label: 'Reference books', items: books, type: 'book' });
+    if (artworks.length) connections.push({ label: 'Featured in', items: [...new Map(artworks.map(a => [a.id, a])).values()], type: 'artwork' });
+  }
+  if (item.type === 'source') {
+    const supplies = items.filter(i => i.type === 'supply' && i.sourceId === item.id);
+    if (supplies.length) connections.push({ label: 'Supplies from here', items: supplies, type: 'supply' });
+  }
+
+  return (
+    <div className="space-y-4">
+      <button onClick={onBack} className="flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors"><Icons.Back /> Back to Gallery</button>
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        {item.image && (
+          <div className={`${config.bgLight} p-8 flex justify-center`}>
+            <img src={item.image} alt="" className="max-h-64 object-contain rounded-xl shadow-lg" />
+          </div>
+        )}
+        <div className="p-6">
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${config.bgMedium} ${config.text}`}>
+                {item.type === 'costume' ? item.costumeType : item.type === 'character' ? item.characterType : item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+              </span>
+              {item.stockStatus && (
+                <span className={`ml-2 text-xs px-2.5 py-1 rounded-full ${item.stockStatus === 'Out of Stock' ? 'bg-red-100 text-red-700' : item.stockStatus === 'Low Stock' ? 'bg-amber-100 text-amber-700' : 'bg-green-100 text-green-700'}`}>{item.stockStatus}</span>
+              )}
+              <h1 className={`text-2xl font-bold text-gray-900 mt-2 ${item.type === 'artwork' ? 'italic' : ''}`}>{item.name || item.title}</h1>
+              {item.authors && <p className="text-gray-600">{item.authors}</p>}
+              {item.brand && <p className="text-gray-600">{item.brand}</p>}
+              {item.rating > 0 && <div className="flex gap-0.5 mt-2">{[1,2,3,4,5].map(n => <span key={n} className={item.rating >= n ? 'text-yellow-400' : 'text-gray-200'}><Icons.Star /></span>)}</div>}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={onEdit} className="p-2 text-gray-400 hover:text-brand-600 hover:bg-brand-50 rounded-lg transition-colors"><Icons.Edit /></button>
+              <button onClick={onDelete} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Icons.Trash /></button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm mb-4">
+            {item.type === 'artwork' && <>
+              <div><span className="text-gray-400 text-xs">Medium</span><p className="font-medium">{item.medium || '—'}</p></div>
+              <div><span className="text-gray-400 text-xs">Dimensions</span><p className="font-medium">{[item.height, item.width, item.depth].filter(Boolean).join(' × ') + (item.units ? ` ${item.units}` : '') || '—'}</p></div>
+              <div><span className="text-gray-400 text-xs">Status</span><p className="font-medium">{item.status}</p></div>
+              <div><span className="text-gray-400 text-xs">Location</span><p className="font-medium">{item.location}</p></div>
+              {item.series && <div><span className="text-gray-400 text-xs">Series</span><p className="font-medium">{item.series}</p></div>}
+            </>}
+            {item.type === 'book' && <>
+              <div><span className="text-gray-400 text-xs">Publisher</span><p className="font-medium">{item.publisher || '—'}</p></div>
+              <div><span className="text-gray-400 text-xs">Category</span><p className="font-medium">{item.category}</p></div>
+              <div><span className="text-gray-400 text-xs">Status</span><p className="font-medium">{item.status}</p></div>
+            </>}
+            {item.type === 'supply' && <>
+              <div><span className="text-gray-400 text-xs">Category</span><p className="font-medium">{item.category}</p></div>
+              <div><span className="text-gray-400 text-xs">Quantity</span><p className="font-medium">{item.quantity} {item.unit}</p></div>
+              {source && <div><span className="text-gray-400 text-xs">Vendor</span><p><button onClick={() => onViewItem(source)} className="text-blue-600 hover:underline font-medium">{source.name}</button></p></div>}
+            </>}
+            {item.type === 'character' && <>
+              <div><span className="text-gray-400 text-xs">Type</span><p className="font-medium">{item.characterType}</p></div>
+              <div><span className="text-gray-400 text-xs">Gender</span><p className="font-medium">{item.gender}</p></div>
+              <div><span className="text-gray-400 text-xs">Age Range</span><p className="font-medium">{item.ageRange}</p></div>
+              {item.production && <div><span className="text-gray-400 text-xs">Production</span><p className="font-medium">{item.production}</p></div>}
+              <div><span className="text-gray-400 text-xs">Era</span><p className="font-medium">{item.era}</p></div>
+              {item.personality && <div className="col-span-2"><span className="text-gray-400 text-xs">Personality</span><p className="font-medium">{item.personality}</p></div>}
+            </>}
+            {item.type === 'costume' && <>
+              <div><span className="text-gray-400 text-xs">Era</span><p className="font-medium">{item.era}</p></div>
+              <div><span className="text-gray-400 text-xs">Condition</span><p className="font-medium">{item.condition}</p></div>
+              <div><span className="text-gray-400 text-xs">Location</span><p className="font-medium">{item.location}</p></div>
+            </>}
+            {item.type === 'source' && <>
+              <div><span className="text-gray-400 text-xs">Type</span><p className="font-medium">{item.storeType}</p></div>
+              {item.website && <div className="col-span-2"><a href={item.website} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">Visit Website <Icons.External /></a></div>}
+            </>}
+          </div>
+          {connections.length > 0 && (
+            <div className="pt-4 border-t space-y-3">
+              <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2"><Icons.Link /> Connections</h3>
+              {connections.map((conn, i) => (
+                <div key={i}>
+                  <p className="text-xs text-gray-400 mb-1">{conn.label}:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {conn.items.map(linked => {
+                      const linkedConfig = typeConfig[linked.type];
+                      return (
+                        <button key={linked.id} onClick={() => onViewItem(linked)} className={`text-sm px-3 py-1.5 rounded-lg ${linkedConfig.bgLight} ${linkedConfig.text} hover:opacity-80 transition-opacity`}>
+                          {linked.name || linked.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {item.notes && <div className="mt-4 pt-4 border-t"><span className="text-gray-400 text-xs">Notes</span><p className="text-gray-700 mt-1">{item.notes}</p></div>}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// MAIN APP
+// ═══════════════════════════════════════════════════════════════════════════════
+
+function ArtistStudioPro() {
+  const [showWelcome, setShowWelcome] = useState(() => !storage.get('onboarded', false));
+  const [showHelp, setShowHelp] = useState(false);
+  const [items, setItems] = useState([]);
+  const [view, setView] = useState('gallery');
+  const [viewMode, setViewMode] = useState('grid');
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [editingItem, setEditingItem] = useState(null);
+  const [addingType, setAddingType] = useState(null);
+  const [search, setSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
+  const [toast, setToast] = useState({ show: false, message: '' });
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [lastSaved, setLastSaved] = useState(null);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    const savedData = storage.get('data', []);
+    setItems(savedData);
+    setLastSaved(storage.get('timestamp', null));
+  }, []);
+
+  useEffect(() => {
+    if (items.length > 0 || storage.get('data', null) !== null) {
+      storage.set('data', items);
+      const now = new Date().toISOString();
+      storage.set('timestamp', now);
+      setLastSaved(now);
+    }
+  }, [items]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => { window.removeEventListener('online', handleOnline); window.removeEventListener('offline', handleOffline); };
+  }, []);
+
+  const handleWelcomeComplete = () => {
+    storage.set('onboarded', true);
+    setShowWelcome(false);
+  };
+
+  const showToast = (msg) => { setToast({ show: true, message: msg }); setTimeout(() => setToast({ show: false, message: '' }), 2500); };
+
+  const handleSave = (item) => {
+    if (editingItem) {
+      setItems(prev => prev.map(i => i.id === item.id ? item : i));
+      showToast('Updated & saved locally!');
+    } else {
+      setItems(prev => [...prev, item]);
+      showToast('Added & saved locally!');
+    }
+    setEditingItem(null);
+    setAddingType(null);
+    setView('gallery');
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm('Delete this item?')) {
+      setItems(prev => prev.filter(i => i.id !== id));
+      setView('gallery');
+      setSelectedItem(null);
+      showToast('Deleted');
+    }
+  };
+
+  const handleExport = () => {
+    const json = JSON.stringify(items, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `artist_studio_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Backup exported!');
+  };
+
+  const handleImport = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const imported = JSON.parse(event.target.result);
+          if (Array.isArray(imported)) {
+            if (window.confirm(`Import ${imported.length} items? This will replace your current data.`)) {
+              setItems(imported);
+              showToast(`Imported ${imported.length} items!`);
+            }
+          } else { alert('Invalid file format'); }
+        } catch (err) { alert('Error reading file: ' + err.message); }
+      };
+      reader.readAsText(file);
+    }
+    e.target.value = '';
+  };
+
+  const getFiltered = () => {
+    let filtered = items;
+    if (activeTab === 'artwork') filtered = items.filter(i => i.type === 'artwork');
+    else if (activeTab === 'book') filtered = items.filter(i => i.type === 'book');
+    else if (activeTab === 'supply') filtered = items.filter(i => i.type === 'supply');
+    else if (activeTab === 'costume') filtered = items.filter(i => i.type === 'costume');
+    else if (activeTab === 'character') filtered = items.filter(i => i.type === 'character');
+    else if (activeTab === 'source') filtered = items.filter(i => i.type === 'source');
+    else if (activeTab === 'reorder') filtered = items.filter(i => i.type === 'supply' && ['Low Stock', 'Out of Stock'].includes(i.stockStatus));
+    else if (activeTab === 'wip') filtered = items.filter(i => i.type === 'artwork' && i.status === 'In Progress');
+
+    if (search) {
+      const s = search.toLowerCase();
+      filtered = filtered.filter(i =>
+        (i.name || i.title || '').toLowerCase().includes(s) ||
+        (i.authors || '').toLowerCase().includes(s) ||
+        (i.brand || '').toLowerCase().includes(s) ||
+        (i.medium || '').toLowerCase().includes(s) ||
+        (i.production || '').toLowerCase().includes(s) ||
+        (i.personality || '').toLowerCase().includes(s)
+      );
+    }
+    return filtered;
+  };
+
+  const filtered = getFiltered();
+  const counts = {
+    all: items.length,
+    artwork: items.filter(i => i.type === 'artwork').length,
+    book: items.filter(i => i.type === 'book').length,
+    supply: items.filter(i => i.type === 'supply').length,
+    costume: items.filter(i => i.type === 'costume').length,
+    character: items.filter(i => i.type === 'character').length,
+    source: items.filter(i => i.type === 'source').length,
+    reorder: items.filter(i => i.type === 'supply' && ['Low Stock', 'Out of Stock'].includes(i.stockStatus)).length,
+    wip: items.filter(i => i.type === 'artwork' && i.status === 'In Progress').length,
+  };
+
+  const tabs = [
+    { id: 'all', label: 'All', count: counts.all },
+    { id: 'artwork', label: 'Artworks', Icon: Icons.Palette, count: counts.artwork },
+    { id: 'book', label: 'Books', Icon: Icons.Book, count: counts.book },
+    { id: 'character', label: 'Characters', Icon: Icons.Mask, count: counts.character },
+    { id: 'costume', label: 'Props', Icon: Icons.Hanger, count: counts.costume },
+    { id: 'supply', label: 'Supplies', Icon: Icons.Box, count: counts.supply },
+    { id: 'source', label: 'Vendors', Icon: Icons.Store, count: counts.source },
+    { id: 'wip', label: 'WIP', Icon: Icons.Sparkles, count: counts.wip },
+    { id: 'reorder', label: 'Reorder', Icon: Icons.Alert, count: counts.reorder, alert: counts.reorder > 0 },
+  ];
+
+  if (showWelcome) {
+    return <WelcomeScreen onComplete={handleWelcomeComplete} />;
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <header className="gradient-dark text-white no-print">
+        <div className="max-w-6xl mx-auto px-4 py-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <Icons.Logo />
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold tracking-tight">Artist Studio Pro</h1>
+                  <OnlineIndicator isOnline={isOnline} />
+                </div>
+                <p className="text-gray-400 text-xs mt-0.5 flex items-center gap-2">
+                  <Icons.Database /> {counts.all} items saved locally
+                  {lastSaved && <span className="text-gray-500 hidden sm:inline">• Last saved {new Date(lastSaved).toLocaleTimeString()}</span>}
+                </p>
+              </div>
+            </div>
+            {view === 'gallery' && (
+              <div className="flex items-center gap-2">
+                <button onClick={() => setShowHelp(true)} className="p-2 text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors" title="Help"><Icons.Help /></button>
+                <div className="hidden md:flex items-center gap-2">
+                  <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
+                  <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-1 bg-white/10 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/20 transition-colors" title="Import backup">
+                    <Icons.Upload /> Import
+                  </button>
+                  <button onClick={handleExport} disabled={items.length === 0} className="flex items-center gap-1 bg-white/10 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/20 transition-colors disabled:opacity-50" title="Export backup">
+                    <Icons.Download /> Export
+                  </button>
+                  <div className="w-px h-8 bg-white/20 mx-1" />
+                </div>
+                {[
+                  { type: 'artwork', config: typeConfig.artwork },
+                  { type: 'book', config: typeConfig.book },
+                  { type: 'character', config: typeConfig.character },
+                  { type: 'costume', config: typeConfig.costume },
+                  { type: 'supply', config: typeConfig.supply },
+                  { type: 'source', config: typeConfig.source },
+                ].map(({ type, config }) => (
+                  <button key={type} onClick={() => { setAddingType(type); setView('form'); }} className={`flex items-center gap-1 ${config.bgDark} text-white px-2.5 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity`}>
+                    <config.Icon />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {view === 'gallery' && (
+        <div className="bg-white border-b shadow-sm sticky top-0 z-10 no-print">
+          <div className="max-w-6xl mx-auto px-4">
+            <div className="flex gap-1 overflow-x-auto py-3 scrollbar-hide">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-all ${
+                    activeTab === tab.id ? 'gradient-brand text-white shadow-lg' : 'text-gray-600 hover:bg-gray-100'
+                  } ${tab.alert ? 'ring-2 ring-red-400 ring-offset-1' : ''}`}
+                >
+                  {tab.Icon && <tab.Icon />}
+                  {tab.label}
+                  <span className={`px-1.5 py-0.5 rounded-full text-xs ${activeTab === tab.id ? 'bg-white/20' : tab.alert ? 'bg-red-100 text-red-600' : 'bg-gray-200'}`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <main className="max-w-6xl mx-auto px-4 py-6">
+        {view === 'gallery' && (
+          <>
+            <div className="flex gap-3 items-center mb-6 no-print">
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  placeholder="Search items..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><Icons.Search /></div>
+              </div>
+              <button onClick={() => setViewMode('grid')} className={`p-2.5 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-brand-100 text-brand-700' : 'text-gray-400 hover:text-gray-600'}`}><Icons.Grid /></button>
+              <button onClick={() => setViewMode('list')} className={`p-2.5 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-brand-100 text-brand-700' : 'text-gray-400 hover:text-gray-600'}`}><Icons.List /></button>
+            </div>
+
+            {filtered.length === 0 ? (
+              <div className="bg-white rounded-2xl shadow-sm p-12 text-center">
+                <div className="text-gray-300 mb-4"><Icons.Image /></div>
+                <h3 className="text-lg font-medium text-gray-600 mb-2">{items.length === 0 ? 'No items yet' : 'No matches found'}</h3>
+                <p className="text-gray-400 mb-4">{items.length === 0 ? 'Add your first item using the buttons above' : 'Try adjusting your search or filters'}</p>
+              </div>
+            ) : viewMode === 'grid' ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {filtered.map(item => {
+                  const config = typeConfig[item.type];
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => { setSelectedItem(item); setView('detail'); }}
+                      className="bg-white rounded-xl shadow-sm overflow-hidden cursor-pointer hover:shadow-lg transition-all group"
+                    >
+                      <div className={`aspect-square relative overflow-hidden ${config.bgLight} flex items-center justify-center`}>
+                        {item.image ? (
+                          <img src={item.image} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        ) : (
+                          <div className={`${config.text} opacity-30`}><config.Icon /></div>
+                        )}
+                        <div className={`absolute top-2 left-2 px-2 py-1 rounded-md text-xs font-semibold ${config.bgDark} text-white shadow`}>
+                          {item.type === 'costume' ? item.costumeType : item.type === 'character' ? item.characterType : item.type}
+                        </div>
+                        {item.stockStatus === 'Out of Stock' && <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded-md text-xs font-semibold shadow">Out</div>}
+                        {item.stockStatus === 'Low Stock' && <div className="absolute top-2 right-2 bg-amber-500 text-white px-2 py-1 rounded-md text-xs font-semibold shadow">Low</div>}
+                      </div>
+                      <div className="p-3">
+                        <h3 className={`font-semibold text-gray-900 truncate ${item.type === 'artwork' ? 'italic' : ''}`}>{item.name || item.title}</h3>
+                        <p className="text-xs text-gray-500 truncate">{item.authors || item.brand || item.medium || item.production || item.era || item.storeType || ''}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y">
+                {filtered.map(item => {
+                  const config = typeConfig[item.type];
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => { setSelectedItem(item); setView('detail'); }}
+                      className="flex items-center gap-4 p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    >
+                      <div className={`w-14 h-14 rounded-lg overflow-hidden flex-shrink-0 ${config.bgLight} flex items-center justify-center`}>
+                        {item.image ? (
+                          <img src={item.image} alt="" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className={`${config.text} opacity-30 scale-75`}><config.Icon /></div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${config.bgMedium} ${config.text}`}>{item.type}</span>
+                          <h3 className={`font-semibold text-gray-900 truncate ${item.type === 'artwork' ? 'italic' : ''}`}>{item.name || item.title}</h3>
+                        </div>
+                        <p className="text-sm text-gray-500 truncate">{item.authors || item.brand || item.medium || item.production || ''}</p>
+                      </div>
+                      {item.stockStatus && <span className={`text-xs px-2 py-1 rounded-md font-medium ${item.stockStatus === 'Out of Stock' ? 'bg-red-100 text-red-600' : item.stockStatus === 'Low Stock' ? 'bg-amber-100 text-amber-600' : 'bg-green-100 text-green-600'}`}>{item.stockStatus}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
+
+        {view === 'form' && (
+          addingType === 'artwork' || editingItem?.type === 'artwork' ? <ArtworkForm item={editingItem} items={items} onSave={handleSave} onCancel={() => { setEditingItem(null); setAddingType(null); setView('gallery'); }} /> :
+          addingType === 'book' || editingItem?.type === 'book' ? <BookForm item={editingItem} items={items} onSave={handleSave} onCancel={() => { setEditingItem(null); setAddingType(null); setView('gallery'); }} /> :
+          addingType === 'supply' || editingItem?.type === 'supply' ? <SupplyForm item={editingItem} items={items} onSave={handleSave} onCancel={() => { setEditingItem(null); setAddingType(null); setView('gallery'); }} /> :
+          addingType === 'costume' || editingItem?.type === 'costume' ? <CostumeForm item={editingItem} items={items} onSave={handleSave} onCancel={() => { setEditingItem(null); setAddingType(null); setView('gallery'); }} /> :
+          addingType === 'character' || editingItem?.type === 'character' ? <CharacterForm item={editingItem} items={items} onSave={handleSave} onCancel={() => { setEditingItem(null); setAddingType(null); setView('gallery'); }} /> :
+          <SourceForm item={editingItem} onSave={handleSave} onCancel={() => { setEditingItem(null); setAddingType(null); setView('gallery'); }} />
+        )}
+
+        {view === 'detail' && selectedItem && (
+          <ItemDetail
+            item={selectedItem}
+            items={items}
+            onEdit={() => { setEditingItem(selectedItem); setView('form'); }}
+            onDelete={() => handleDelete(selectedItem.id)}
+            onBack={() => { setSelectedItem(null); setView('gallery'); }}
+            onViewItem={(item) => setSelectedItem(item)}
+          />
+        )}
+      </main>
+
+      <Toast message={toast.message} show={toast.show} />
+      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<ArtistStudioPro />);
+    </script>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((registration) => {
+                        console.log('Artist Studio Pro: Service Worker registered', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('Artist Studio Pro: Service Worker registration failed', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>
